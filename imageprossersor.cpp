@@ -5,6 +5,7 @@
 #include <QDebug>
 #include <QPixmap>
 #include <QAction>
+#include "imagetransform.h"
 
 ImageProssersor::ImageProssersor(QWidget *parent)
     : QMainWindow(parent)
@@ -15,6 +16,7 @@ ImageProssersor::ImageProssersor(QWidget *parent)
 
     imgWin = new QLabel();
     QPixmap *initPixmap = new QPixmap(300, 200);
+    gWin = new ImageTransform();
     initPixmap->fill(QColor(255, 255, 255));
     imgWin->resize(300, 200);
     imgWin->setScaledContents(true);
@@ -50,11 +52,19 @@ void ImageProssersor::createActions() {
     zoomOutAction->setShortcut(tr("Ctrl+-"));
     zoomOutAction->setStatusTip(QStringLiteral("縮小影像"));
     connect(zoomOutAction, SIGNAL(triggered()), this, SLOT(zoomOut()));
+
+    geometryAction = new QAction(QStringLiteral("幾何轉換"),this);
+    geometryAction->setShortcut(tr("Ctrl+G"));
+    geometryAction->setStatusTip(QStringLiteral("影像幾何轉換"));
+    connect(geometryAction,SIGNAL(triggered()),this,SLOT(showGeometryTransform()));
+    connect(exitAction,SIGNAL(triggered()),gWin,SLOT(close()));
+
 }
 
 void ImageProssersor::createMenus() {
     fileMenu = menuBar()->addMenu(QStringLiteral("檔案(&F)"));
     fileMenu->addAction(openFileAction);
+    fileMenu->addAction(geometryAction);
     fileMenu->addAction(exitAction);
 }
 
@@ -63,6 +73,7 @@ void ImageProssersor::createToolBars() {
     fileTool->addAction(openFileAction);
     fileTool->addAction(zoomInAction);
     fileTool->addAction(zoomOutAction);
+    fileTool->addAction(geometryAction);
 }
 
 void ImageProssersor::loadFile(QString filename)
@@ -101,5 +112,13 @@ void ImageProssersor::zoomOut()
 {
     scaleFactor /= 1.2;
     imgWin->resize(img.size() * scaleFactor);
+}
+void ImageProssersor:: showGeometryTransform()
+{
+    if(!img.isNull())
+    gWin->srcImg = img;
+
+    gWin->inWin->setPixmap(QPixmap::fromImage(gWin->srcImg));
+    gWin->show();
 }
 
