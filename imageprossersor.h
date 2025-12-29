@@ -9,6 +9,8 @@
 #include <QLabel>
 #include <QStatusBar>
 #include <QMouseEvent>
+#include <QPainter>
+#include <QPixmap>
 #include "imagetransform.h"
 
 class ImageProssersor : public QMainWindow
@@ -51,6 +53,12 @@ private:
     QAction *zoomOutAction;
     QAction *geometryAction;
     qreal scaleFactor = 1.0;  // 用於放大縮小的縮放因子
+    
+    // 區域選取相關變數
+    bool isSelecting = false;
+    QPoint selectionStart;
+    QPoint selectionEnd;
+    QRect selectionRect;
 };
 
 #endif // IMAGEPROSSERSOR_H

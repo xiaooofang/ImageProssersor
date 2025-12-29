@@ -13,6 +13,8 @@
 #include <QImage>
 #include <QToolBar>
 #include <QAction>
+#include <QPainter>
+#include <QMouseEvent>
 
 class ImageTransform : public QWidget
 {
@@ -23,6 +25,11 @@ public:
     ~ImageTransform();
     QImage       srcImg;
     QLabel      *inWin;
+    QPixmap      displayPixmap;  // 用於顯示的 pixmap（包含繪圖）
+    
+protected:
+    bool eventFilter(QObject *obj, QEvent *event) override;
+    
 private slots:
     void openImage();        // 開啟 png
     void saveImage();        // 儲存圖片
@@ -43,8 +50,11 @@ private:
     QHBoxLayout *mainLayout;
     QVBoxLayout *leftLayout;
 
-
     QImage       dstImg;
+    
+    // 繪圖相關變數
+    bool isDrawing = false;
+    QPoint lastDrawPoint;
 };
 
 #endif // IMAGETRANSFORM_H

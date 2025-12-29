@@ -1,0 +1,26 @@
+# Build artifacts
+*.o
+*.obj
+moc_*.cpp
+moc_*.h
+moc_predefs.h
+qrc_*.cpp
+ui_*.h
+ImageProssersor
+ImageProssersor.exe
+
+# Qt generated files
+Makefile
+Makefile.Debug
+Makefile.Release
+*.pro.user
+*.pro.user.*
+
+# Build directories
+build/
+debug/
+release/
+
+# IDE files
+.qtc_clangd/
+.qmake.stash
