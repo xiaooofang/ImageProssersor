@@ -59,6 +59,7 @@ private:
     QPoint selectionStart;
     QPoint selectionEnd;
     QRect selectionRect;
+    QPixmap baseScaledPixmap;  // 快取基礎縮放圖片以提升效能
 };
 
 #endif // IMAGEPROSSERSOR_H

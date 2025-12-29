@@ -118,7 +118,14 @@ bool ImageTransform::eventFilter(QObject *obj, QEvent *event)
                 
                 // 如果 displayPixmap 為空，則初始化
                 if (displayPixmap.isNull()) {
-                    displayPixmap = inWin->pixmap();
+                    QPixmap pm = inWin->pixmap();
+                    if (!pm.isNull()) {
+                        displayPixmap = pm;
+                    } else {
+                        // 後備方案：從 srcImg 創建
+                        displayPixmap = QPixmap::fromImage(srcImg).scaled(inWin->size(), 
+                            Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                    }
                 }
             }
             return false;
