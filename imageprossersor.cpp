@@ -67,11 +67,67 @@ bool ImageProssersor::eventFilter(QObject *obj, QEvent *event)
         if (event->type() == QEvent::MouseMove) {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
             updateMousePosition(mouseEvent);
+            
+            // 如果正在選取區域，更新選取範圍
+            if (isSelecting && (mouseEvent->buttons() & Qt::LeftButton)) {
+                selectionEnd = mouseEvent->pos();
+                
+                // 使用快取的基礎圖片，僅添加選取框
+                QPixmap pixmap = baseScaledPixmap;
+                QPainter painter(&pixmap);
+                painter.setPen(QPen(Qt::red, 2, Qt::DashLine));
+                
+                // 計算選取矩形
+                int x = qMin(selectionStart.x(), selectionEnd.x());
+                int y = qMin(selectionStart.y(), selectionEnd.y());
+                int w = qAbs(selectionEnd.x() - selectionStart.x());
+                int h = qAbs(selectionEnd.y() - selectionStart.y());
+                selectionRect = QRect(x, y, w, h);
+                
+                painter.drawRect(selectionRect);
+                painter.end();
+                
+                imgWin->setPixmap(pixmap);
+            }
             return false;
         } else if (event->type() == QEvent::MouseButtonPress) {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
             if (mouseEvent->button() == Qt::LeftButton) {
                 updateClickPosition(mouseEvent);
+                
+                // 開始區域選取
+                if (!img.isNull()) {
+                    isSelecting = true;
+                    selectionStart = mouseEvent->pos();
+                    selectionEnd = selectionStart;
+                    
+                    // 快取基礎縮放圖片
+                    baseScaledPixmap = QPixmap::fromImage(img).scaled(imgWin->size(), 
+                        Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+                }
+            }
+            return false;
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton && isSelecting) {
+                // 完成區域選取
+                selectionEnd = mouseEvent->pos();
+                isSelecting = false;
+                
+                // 計算最終選取矩形
+                int x = qMin(selectionStart.x(), selectionEnd.x());
+                int y = qMin(selectionStart.y(), selectionEnd.y());
+                int w = qAbs(selectionEnd.x() - selectionStart.x());
+                int h = qAbs(selectionEnd.y() - selectionStart.y());
+                selectionRect = QRect(x, y, w, h);
+                
+                // 如果選取了有效區域（不是單點擊），則自動跳轉至幾何轉換
+                if (w > 5 && h > 5) {  // 最小選取範圍 5x5 像素
+                    showGeometryTransform();
+                } else {
+                    // 恢復原圖顯示（清除選取框）
+                    imgWin->setPixmap(baseScaledPixmap);
+                }
             }
             return false;
         }
@@ -243,9 +299,39 @@ void ImageProssersor::zoomOut()
 
 void ImageProssersor::showGeometryTransform()
 {
-    if(!img.isNull())
-        gWin->srcImg = img;
+    if(!img.isNull()) {
+        // 如果有選取區域，則只傳遞選取的部分
+        if (!selectionRect.isNull() && selectionRect.width() > 0 && selectionRect.height() > 0) {
+            // 將 imgWin 的座標轉換為原始圖片座標 (使用浮點數提升精度)
+            qreal scaleX = static_cast<qreal>(img.width()) / imgWin->width();
+            qreal scaleY = static_cast<qreal>(img.height()) / imgWin->height();
+            
+            int imgX = qRound(selectionRect.x() * scaleX);
+            int imgY = qRound(selectionRect.y() * scaleY);
+            int imgW = qRound(selectionRect.width() * scaleX);
+            int imgH = qRound(selectionRect.height() * scaleY);
+            
+            // 確保座標在圖片範圍內
+            imgX = qMax(0, qMin(imgX, img.width() - 1));
+            imgY = qMax(0, qMin(imgY, img.height() - 1));
+            imgW = qMin(imgW, img.width() - imgX);
+            imgH = qMin(imgH, img.height() - imgY);
+            
+            // 擷取選取區域
+            QImage croppedImg = img.copy(imgX, imgY, imgW, imgH);
+            gWin->srcImg = croppedImg;
+            
+            // 清除選取框
+            selectionRect = QRect();
+            imgWin->setPixmap(baseScaledPixmap);
+        } else {
+            gWin->srcImg = img;
+        }
+    }
 
-    gWin->inWin->setPixmap(QPixmap::fromImage(gWin->srcImg));
+    // 初始化 displayPixmap
+    gWin->displayPixmap = QPixmap::fromImage(gWin->srcImg).scaled(gWin->inWin->size(), 
+        Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    gWin->inWin->setPixmap(gWin->displayPixmap);
     gWin->show();
 }
