@@ -7,6 +7,8 @@
 #include <QToolBar>
 #include <QImage>
 #include <QLabel>
+#include <QStatusBar>
+#include <QMouseEvent>
 #include "imagetransform.h"
 
 class ImageProssersor : public QMainWindow
@@ -21,11 +23,16 @@ public:
     void createToolBars();
     void loadFile(QString filename);
 
+protected:
+    // 重寫滑鼠移動事件
+    void mouseMoveEvent(QMouseEvent *event) override;
+
 private slots:
     void showOpenFile();
     void zoomIn();
     void zoomOut();
     void showGeometryTransform();
+
 private:
     ImageTransform *gWin;
     QWidget *central;
