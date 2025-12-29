@@ -18,14 +18,10 @@ class ImageProssersor : public QMainWindow
 public:
     ImageProssersor(QWidget *parent = nullptr);
     ~ImageProssersor();
-    void createActions();
-    void createMenus();
-    void createToolBars();
     void loadFile(QString filename);
 
 protected:
-    // 重寫滑鼠移動事件
-    void mouseMoveEvent(QMouseEvent *event) override;
+    bool eventFilter(QObject *obj, QEvent *event) override;  // 新增
 
 private slots:
     void showOpenFile();
@@ -34,6 +30,14 @@ private slots:
     void showGeometryTransform();
 
 private:
+    void createActions();
+    void createMenus();
+    void createToolBars();
+    void updateMousePosition(QMouseEvent *event);  // 新增
+    void updateClickPosition(QMouseEvent *event);   // 新增
+
+    QLabel *clickInfoLabel;    // 新增：左下側點擊資訊
+    QLabel *mousePosLabel;
     ImageTransform *gWin;
     QWidget *central;
     QMenu *fileMenu;

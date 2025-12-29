@@ -1,5 +1,6 @@
 #include "imageprossersor.h"
 #include <QHBoxLayout>
+#include <QVBoxLayout>
 #include <QMenuBar>
 #include <QFileDialog>
 #include <QDebug>
@@ -8,6 +9,7 @@
 #include <QStatusBar>
 #include <QMouseEvent>
 #include "imagetransform.h"
+
 ImageProssersor::ImageProssersor(QWidget *parent)
     : QMainWindow(parent)
 {
@@ -15,11 +17,12 @@ ImageProssersor::ImageProssersor(QWidget *parent)
 
     // 創建中央窗口和佈局
     central = new QWidget();
-    QHBoxLayout *mainLayout = new QHBoxLayout(central);
+    QVBoxLayout *mainLayout = new QVBoxLayout(central);
 
     // 顯示圖像的 QLabel
     imgWin = new QLabel();
-    imgWin->setMouseTracking(true);  // 啟用滑鼠追蹤，這是關鍵步驟
+    imgWin->setMouseTracking(true);  // 啟用滑鼠追蹤
+    imgWin->installEventFilter(this);  // 安裝事件過濾器以捕獲 imgWin 的滑鼠事件
     QPixmap *initPixmap = new QPixmap(300, 200);
     gWin = new ImageTransform();
     initPixmap->fill(QColor(255, 255, 255));
@@ -28,6 +31,26 @@ ImageProssersor::ImageProssersor(QWidget *parent)
     imgWin->setPixmap(*initPixmap);
 
     mainLayout->addWidget(imgWin);
+
+    // 創建底部資訊顯示區域
+    QHBoxLayout *infoLayout = new QHBoxLayout();
+
+    // 左下側：點擊位置資訊
+    clickInfoLabel = new QLabel(QStringLiteral("點擊位置: 無"));
+    clickInfoLabel->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    clickInfoLabel->setMinimumHeight(30);
+    clickInfoLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    // 右下側：即時滑鼠位置資訊
+    mousePosLabel = new QLabel(QStringLiteral("位置: 無"));
+    mousePosLabel->setFrameStyle(QFrame::Panel | QFrame::Sunken);
+    mousePosLabel->setMinimumHeight(30);
+    mousePosLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
+    infoLayout->addWidget(clickInfoLabel, 1);
+    infoLayout->addWidget(mousePosLabel, 1);
+
+    mainLayout->addLayout(infoLayout);
     setCentralWidget(central);
 
     createActions();
@@ -37,37 +60,99 @@ ImageProssersor::ImageProssersor(QWidget *parent)
     // 創建狀態列
     statusBar()->showMessage("準備就緒");
 }
-void ImageProssersor::mouseMoveEvent(QMouseEvent *event) {
+
+bool ImageProssersor::eventFilter(QObject *obj, QEvent *event)
+{
+    if (obj == imgWin) {
+        if (event->type() == QEvent::MouseMove) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            updateMousePosition(mouseEvent);
+            return false;
+        } else if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                updateClickPosition(mouseEvent);
+            }
+            return false;
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
+}
+
+void ImageProssersor::updateMousePosition(QMouseEvent *event)
+{
     if (img.isNull()) {
-        return; // 如果圖片為空，則不顯示信息
+        mousePosLabel->setText(QStringLiteral("位置: 無圖片"));
+        return;
     }
 
-    // 獲取滑鼠位置
+    // 獲取滑鼠在 imgWin 中的位置
     QPoint pos = event->pos();
 
-    // 根據縮放因子調整位置
-    QPointF scaledPos = pos / scaleFactor;
+    // 計算實際圖片座標
+    int imgX = pos.x() * img.width() / imgWin->width();
+    int imgY = pos.y() * img.height() / imgWin->height();
 
-    // 確保滑鼠位置在圖片範圍內
-    if (scaledPos.x() >= 0 && scaledPos.y() >= 0 && scaledPos.x() < img.width() && scaledPos.y() < img.height()) {
+    // 確保座標在圖片範圍內
+    if (imgX >= 0 && imgY >= 0 && imgX < img.width() && imgY < img.height()) {
         // 獲取對應位置的像素顏色
-        QColor pixelColor = img.pixelColor(scaledPos.toPoint());
+        QColor pixelColor = img.pixelColor(imgX, imgY);
 
         // 計算灰階值
-        int grayValue = qRound(0.299 * pixelColor.red() + 0.587 * pixelColor.green() + 0.114 * pixelColor.blue());
+        int grayValue = qRound(0.299 * pixelColor.red() +
+                               0.587 * pixelColor.green() +
+                               0.114 * pixelColor.blue());
 
-        // 格式化顯示資訊
-        QString statusText = QString("位置: (%1, %2), 灰階: %3")
-                                 .arg(scaledPos.x())
-                                 .arg(scaledPos.y())
-                                 .arg(grayValue);
+        // 更新右下側標籤
+        QString infoText = QString("位置: (%1, %2) | 灰階: %3 | RGB: (%4, %5, %6)")
+                               .arg(imgX)
+                               .arg(imgY)
+                               .arg(grayValue)
+                               .arg(pixelColor.red())
+                               .arg(pixelColor.green())
+                               .arg(pixelColor.blue());
 
-        // 更新狀態列
-        statusBar()->showMessage(statusText);
+        mousePosLabel->setText(infoText);
+    } else {
+        mousePosLabel->setText(QStringLiteral("位置: 超出範圍"));
     }
 }
 
+void ImageProssersor::updateClickPosition(QMouseEvent *event)
+{
+    if (img.isNull()) {
+        clickInfoLabel->setText(QStringLiteral("點擊位置: 無圖片"));
+        return;
+    }
 
+    // 獲取滑鼠在 imgWin 中的位置
+    QPoint pos = event->pos();
+
+    // 計算實際圖片座標
+    int imgX = pos.x() * img.width() / imgWin->width();
+    int imgY = pos.y() * img.height() / imgWin->height();
+
+    // 確保座標在圖片範圍內
+    if (imgX >= 0 && imgY >= 0 && imgX < img.width() && imgY < img.height()) {
+        // 獲取對應位置的像素顏色
+        QColor pixelColor = img.pixelColor(imgX, imgY);
+
+        // 計算灰階值
+        int grayValue = qRound(0.299 * pixelColor.red() +
+                               0.587 * pixelColor.green() +
+                               0.114 * pixelColor.blue());
+
+        // 更新左下側標籤
+        QString clickText = QString("點擊位置: (%1, %2) | 灰階: %3")
+                                .arg(imgX)
+                                .arg(imgY)
+                                .arg(grayValue);
+
+        clickInfoLabel->setText(clickText);
+    } else {
+        clickInfoLabel->setText(QStringLiteral("點擊位置: 超出範圍"));
+    }
+}
 
 ImageProssersor::~ImageProssersor() {}
 
@@ -121,6 +206,10 @@ void ImageProssersor::loadFile(QString filename)
 
     scaleFactor = 1.0;
     imgWin->resize(img.size());   // 初始顯示大小
+
+    // 重置資訊標籤
+    clickInfoLabel->setText(QStringLiteral("點擊位置: 無"));
+    mousePosLabel->setText(QStringLiteral("位置: 無"));
 }
 
 void ImageProssersor::showOpenFile() {
